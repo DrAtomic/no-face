@@ -13,9 +13,11 @@ def capture_cam():
     
     while True:
         ret_val, img = cam.read()
-        faces = find_face(img)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        faces = find_face(gray)
+
         if faces != []:
-            modify_face(img,faces)
+            modify_face(gray,faces)
         cv2.imshow('no face', img)
         
         if cv2.waitKey(1) & 0xff == ord('q'):

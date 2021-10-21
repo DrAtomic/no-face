@@ -8,7 +8,7 @@ def find_face(img):
     """finds the face in an image/stream
 
     Args:
-       img: Image to find faces
+       img: gray image to find faces
 
     Returns:
         list of dictionaries of faces with keypoints
@@ -16,7 +16,6 @@ def find_face(img):
     """
 
     min_conf = 0.9
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     pixels = np.asarray(img)
     global detector
 
