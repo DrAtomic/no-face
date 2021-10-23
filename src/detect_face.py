@@ -5,101 +5,95 @@ import cv2
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("../data/shape_predictor_68_face_landmarks.dat")
 
-def create_mask(img,points):
-    """creates a box around a set of points
+cam = cv2.VideoCapture(0)
 
-    Args:
-       img: the image
-       points: the points for the img
-
-    Returns:
-        idk
-
-    """
-    zeros = np.zeros(img.shape,dtype=np.uint8)
-    mask = cv2.fillPoly(zeros,[points],(255,255,255))
-    return mask
-
-def top_mask(img,forhead):
-    """this makes a mask from the forhead up
-
-    Args:
-       img:       img to mask
-       forhead:   forhead point
-
-    Returns:
-        mask of the top half and bottom half
-
-    """
-    zeros = np.zeros(img.shape,dtype=np.uint8)
-    forhead_mask = cv2.circle(zeros, forhead, 125,(255,255,255),-1)
-    
-    return forhead_mask
-
-def get_region(img,points):
+def get_region(img,point):
     """gets a region of the face of the face with the most flesh tone
 
     Args:
        img: croped image of face
-       points: face points
+       point: face point
 
     Returns:
         region of fleshy face
 
     """
+    w = 50
+    h = 50
+    region = img[point[1]-h:point[1], point[0]-w:point[0]]
+    return region
 
-    # get a bounding box from 41 to 1
-    #                          1 to 6
-    #                          6 to 49
-    #                          49 to 41
-    pass
-    
+def get_avg(region):
+    """gets the avg pixel value of fleshy region
 
-def edit_face(img,mask):
+    Args:
+       region: fleshy region
+
+    Returns:
+        avg of fleshy region
+
+    """
+    average = (region.sum(axis=1).sum(axis=0)) / (region.shape[0] * region.shape[1])
+    return average
+
+def create_mask(img,point,color):
+    """creates a box around a set of points
+
+    Args:
+       img: the image
+       point: center point
+       color: color of mask
+
+    Returns:
+        mask
+
+    """
+    zeros = np.zeros(img.shape,dtype=np.uint8)
+    mask = cv2.ellipse(zeros,point,(150,125),90,0,360,color,-1)
+    return mask
+
+def edit_face(img):
     """applies the color to the face
 
     Args:
        img: the image
-       mask: mask
 
     Returns:
         faceless person
 
     """
-    result = cv2.bitwise_or(img,mask)
-    return result
+    
+    white_mask = create_mask(img,face_points[29],(255,255,255))
+    white_region_face = cv2.bitwise_or(img,white_mask)
 
-img = cv2.imread("../data/2021-10-20-224934.jpg")
-gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-faces = detector(gray)
-for face in faces:
-    x1,y1 = face.left(),face.top()
-    x2,y2 = face.right(),face.bottom()
-    #img = cv2.rectangle(img, (x1,y1),(x2,y2),(0,0,255),2)
-    landmarks = predictor(gray,face)
-    face_points = []
-    for i in range(68):
-        x = landmarks.part(i).x
-        y = landmarks.part(i).y
-        face_points.append([x,y])
-        cv2.circle(img,(x,y),2,(0,0,255),2)
-        cv2.putText(img,str(i),(x,y-10),cv2.FONT_HERSHEY_COMPLEX_SMALL,0.8,(0,0,255),1)
+    flesh_region = get_region(img,face_points[30])
+    flesh_avg = get_avg(flesh_region)
 
+    img[np.all(white_region_face == (255,255,255),axis=-1)] = flesh_avg
+
+    return img
+
+while True:
+    ret, img = cam.read()
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    faces = detector(gray)
+    for face in faces:
+        x1,y1 = face.left(),face.top()
+        x2,y2 = face.right(),face.bottom()
+        #img = cv2.rectangle(img, (x1,y1),(x2,y2),(0,0,255),2)
+        landmarks = predictor(gray,face)
+        face_points = []
+        for i in range(len(landmarks.parts())):
+            x = landmarks.part(i).x
+            y = landmarks.part(i).y
+            face_points.append([x,y])
+            # cv2.circle(img,(x,y),2,(0,0,255),2)
+            # cv2.putText(img,str(i),(x,y-10),cv2.FONT_HERSHEY_COMPLEX_SMALL,0.8,(0,0,255),1)
 
     face_points = np.array(face_points)
-    regions = []
-    regions.append(create_mask(img,face_points[0:17]))
-    regions.append(top_mask(img,face_points[28]))
-
-    
-    
-    cv2.imshow("test1",img)
-    img = edit_face(img,regions[0])
-    img = edit_face(img,regions[1])
-    
-
-
-    
-cv2.imshow("test",img)
-cv2.waitKey(0)
+    img = edit_face(img)
+    cv2.imshow("noface",img)
+    if cv2.waitKey(1) & 0xff == ord('q'):
+        break
+cam.release()
 cv2.destroyAllWindows()
